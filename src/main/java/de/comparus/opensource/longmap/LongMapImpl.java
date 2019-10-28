@@ -1,11 +1,14 @@
 package de.comparus.opensource.longmap;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+
 public class LongMapImpl<V> implements LongMap<V> {
 
     private int capacity;
     private Entry[] table;
     private int maxLoop;
-    private long size;
+    private int size;
     private double topLoadFactor;
     private double bottomLoadFactor;
 
@@ -18,9 +21,13 @@ public class LongMapImpl<V> implements LongMap<V> {
         bottomLoadFactor = 0.6;
     }
 
+    //XXX debug - decrease
     public V put(long key, V value) {
         int potentialIndex = -1;
 
+        if (value == null) {
+            throw new NullPointerException("value = null");
+        }
         if ((double) size / capacity > topLoadFactor) {
             increaseTable();
         }
@@ -39,7 +46,6 @@ public class LongMapImpl<V> implements LongMap<V> {
                     }
                 } else if (table[index].key == key) {
                     table[index].value = value;
-                    size++;
                     return value;
                 }
             }
@@ -86,15 +92,34 @@ public class LongMapImpl<V> implements LongMap<V> {
     }
 
     public boolean containsValue(V value) {
+        if (value == null) {
+            throw new NullPointerException("value = null");
+        }
 
+        for (Entry entry : table) {
+            if (entry != null && value.equals(entry.value) && entry.zeroForDeletedEntry == 1) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public long[] keys() {
-
+        if (size == 0) {
+            return new long[0];
+        } else {
+            return Arrays.stream(table).filter(e -> e != null && e.zeroForDeletedEntry == 1)
+                    .mapToLong(Entry::getKey).toArray();
+        }
     }
 
     public V[] values() {
-
+        if (size == 0) {
+            return new ArrayList<V>(0).toArray();
+        } else {
+            return Arrays.stream(table).filter(e -> e != null && e.zeroForDeletedEntry == 1)
+                    .mapToLong(Entry::getKey).toArray();
+        }
     }
 
     public long size() {
@@ -131,6 +156,14 @@ public class LongMapImpl<V> implements LongMap<V> {
             this.key = key;
             this.value = value;
             this.zeroForDeletedEntry = 1;
+        }
+
+        public long getKey() {
+            return key;
+        }
+
+        public V getValue() {
+            return value;
         }
     }
 }
