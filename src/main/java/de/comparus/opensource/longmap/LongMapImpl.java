@@ -115,10 +115,10 @@ public class LongMapImpl<V> implements LongMap<V> {
 
     public V[] values() {
         if (size == 0) {
-            return new ArrayList<V>(0).toArray();
+            return (V[]) new Object[0];
         } else {
-            return Arrays.stream(table).filter(e -> e != null && e.zeroForDeletedEntry == 1)
-                    .mapToLong(Entry::getKey).toArray();
+            return (V[]) Arrays.stream(table).filter(e -> e != null && e.zeroForDeletedEntry == 1)
+                    .map(Entry::getValue).toArray();
         }
     }
 
