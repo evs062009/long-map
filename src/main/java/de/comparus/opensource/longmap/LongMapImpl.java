@@ -7,7 +7,8 @@ import java.util.stream.Stream;
 
 public class LongMapImpl<V> implements LongMap<V> {
 
-    private Entry[] table;
+    //FIXME package-private just for test, must be changed to private
+    /*private*/ Entry[] table;
     //    private Reserve reserve;
     private int capacity;
     private int size;
@@ -16,8 +17,8 @@ public class LongMapImpl<V> implements LongMap<V> {
     private double topLoadFactor;
     private double bottomLoadFactor;
 
-    private static final int DEFAULT_CAPACITY = 8;
-    private static final int MAX_CAPACITY = 1 << 30;
+    public static final int DEFAULT_CAPACITY = 8;
+    public static final int MAX_CAPACITY = 1 << 30;
 
     public LongMapImpl() {
         capacity = DEFAULT_CAPACITY;
@@ -26,6 +27,16 @@ public class LongMapImpl<V> implements LongMap<V> {
         size = 0;
         topLoadFactor = 0.9;
         bottomLoadFactor = 0.4;
+    }
+
+    //FIXME just for test
+    public LongMapImpl(int capacity, int maxLoop, double topLoadFactor, double bottomLoadFactor) {
+        this.capacity = capacity;
+        table = new Entry[capacity];
+        size = 0;
+        this.maxLoop = maxLoop;
+        this.topLoadFactor = topLoadFactor;
+        this.bottomLoadFactor = bottomLoadFactor;
     }
 
     public V put(long key, V value) {
@@ -191,7 +202,8 @@ public class LongMapImpl<V> implements LongMap<V> {
         return -1;
     }
 
-    private int calculateIndex(long key, int i) {
+    //FIXME public just for testing, must be changed to private
+    /*private*/ int calculateIndex(long key, int i) {
         int hash = getHash(key);
         int h1 = hash % capacity;
         int h2 = 1 + (hash % (capacity - 1));
@@ -199,7 +211,7 @@ public class LongMapImpl<V> implements LongMap<V> {
     }
 
     private int getHash(long key) {
-        return (int) (key ^ (key >>> 32));
+        return Math.abs((int) (key ^ (key >>> 32)));
     }
 
     private void rehashEntry(Entry entry, Entry[] newTable) {
@@ -284,7 +296,8 @@ public class LongMapImpl<V> implements LongMap<V> {
 //        111
 //    }
 
-    private static class Entry<V> {
+    //FIXME package-private just for test, must be changed to private
+    static class Entry<V> {
         private long key;
         private V value;
         private byte zeroForDeletedEntry;         // == 0, when entry marked as deleted
