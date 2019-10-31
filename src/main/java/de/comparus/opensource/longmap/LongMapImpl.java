@@ -121,7 +121,7 @@ public class LongMapImpl<V> implements LongMap<V> {
     }
 
     public void clear() {
-        clearTable();
+        Arrays.fill(table, null);
         capacity = DEFAULT_CAPACITY;
         table = new Entry[capacity];
 //        clearReserve();
@@ -182,10 +182,16 @@ public class LongMapImpl<V> implements LongMap<V> {
         Stream<Entry> tableEntries = Arrays.stream(table).filter(isEntryNotEmpty());
 //        Stream<Entry> reserveEntries = getReserveEntries();
 //        Stream.concat(tableEntries, reserveEntries).forEach(e -> putForRehash(e, newTable));
-        tableEntries.forEach(e -> rehashEntry(e, newTable));
-        clearTable();
+
+        //FIXME see rehashEntry()
+        try {
+            tableEntries.forEach(e -> rehashEntry(e, newTable));
+            Arrays.fill(table, null);
 //        clearReserve();
-        table = newTable;
+            table = newTable;
+        } catch (RuntimeException e) {
+            e.printStackTrace();
+        }
     }
 
     private int getKeyIndex(long key) {
@@ -214,7 +220,7 @@ public class LongMapImpl<V> implements LongMap<V> {
         return Math.abs((int) (key ^ (key >>> 32)));
     }
 
-    private void rehashEntry(Entry entry, Entry[] newTable) {
+    private void rehashEntry(Entry entry, Entry[] newTable) throws RuntimeException {
         for (int i = 0; i < maxLoop; i++) {
             int index = calculateIndex(entry.key, i);
             if (newTable[index] == null || newTable[index].zeroForDeletedEntry == 0) {
@@ -226,14 +232,8 @@ public class LongMapImpl<V> implements LongMap<V> {
 //            throw new RuntimeException("Error in rehash.");
 //        }
 
-        //FIXME just for test
+        //FIXME think about
         throw new RuntimeException(String.format("Can not rehash entry with key %s", entry.key));
-    }
-
-    private void clearTable() {
-        for (int i = 0; i < capacity; i++) {
-            table[i] = null;
-        }
     }
 
     private Predicate<Entry> isEntryNotEmpty() {
@@ -298,7 +298,8 @@ public class LongMapImpl<V> implements LongMap<V> {
 
     //FIXME package-private just for test, must be changed to private
     static class Entry<V> {
-        private long key;
+        //FIXME package-private just for test, must be changed to private
+        /*private*/ long key;
         private V value;
         private byte zeroForDeletedEntry;         // == 0, when entry marked as deleted
 
