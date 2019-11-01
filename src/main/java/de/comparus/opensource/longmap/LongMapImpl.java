@@ -7,8 +7,7 @@ import java.util.stream.Stream;
 
 public class LongMapImpl<V> implements LongMap<V> {
 
-    //FIXME package-private just for test, must be changed to private
-    /*private*/ Entry[] table;
+    private Entry[] table;
     //    private Reserve reserve;
     private int capacity;
     private int size;
@@ -20,21 +19,25 @@ public class LongMapImpl<V> implements LongMap<V> {
     public static final int DEFAULT_CAPACITY = 8;
     public static final int MAX_CAPACITY = 1 << 30;
 
+    //FIXME in production needs to be static final
+    public /*static final*/ int DEFAULT_MAX_LOOP = 20;
+
     public LongMapImpl() {
         capacity = DEFAULT_CAPACITY;
-        table = new Entry[capacity];
-        maxLoop = Math.min(capacity, 20);
+//        table = new Entry[capacity];
+        maxLoop = Math.min(capacity / 2, DEFAULT_MAX_LOOP);
         size = 0;
         topLoadFactor = 0.9;
         bottomLoadFactor = 0.4;
     }
 
     //FIXME just for test
-    public LongMapImpl(int capacity, int maxLoop, double topLoadFactor, double bottomLoadFactor) {
-        this.capacity = capacity;
-        table = new Entry[capacity];
+    public LongMapImpl(int initialCapacity, int DEFAULT_MAX_LOOP, double topLoadFactor, double bottomLoadFactor) {
+        capacity = initialCapacity;
+//        table = new Entry[capacity];
         size = 0;
-        this.maxLoop = maxLoop;
+        this.DEFAULT_MAX_LOOP = DEFAULT_MAX_LOOP;
+        this.maxLoop = Math.min(capacity / 2, DEFAULT_MAX_LOOP);
         this.topLoadFactor = topLoadFactor;
         this.bottomLoadFactor = bottomLoadFactor;
     }
@@ -44,7 +47,7 @@ public class LongMapImpl<V> implements LongMap<V> {
             throw new NullPointerException("value = null");
         }
         if ((double) (size + 1) / capacity > topLoadFactor) {
-            increaseTable();
+            changeTableSize(true);
         }
 
         return putNewPair(key, value);
@@ -52,8 +55,8 @@ public class LongMapImpl<V> implements LongMap<V> {
 
     public V get(long key) {
         int index = getKeyIndex(key);
-        if (index != -1) {
-            return (V) table[index].value;
+        if (index != -1 && getTable()[index] != null) {
+            return (V) getTable()[index].value;
         }
 //        return getFromReserve(key);
         return null;
@@ -67,8 +70,10 @@ public class LongMapImpl<V> implements LongMap<V> {
 //        } else {
 //            value = removeInReserve(key);
         }
-        if ((double) size / capacity < bottomLoadFactor) {
-            decreaseTable();
+        if (size == 0) {
+            clear();
+        } else if ((double) size / capacity < bottomLoadFactor) {
+            changeTableSize(false);
         }
         return value;
     }
@@ -85,7 +90,7 @@ public class LongMapImpl<V> implements LongMap<V> {
         if (value == null) {
             throw new NullPointerException("value = null");
         }
-        for (Entry entry : table) {
+        for (Entry entry : getTable()) {
             if (entry != null && value.equals(entry.value) && entry.zeroForDeletedEntry == 1) {
                 return true;
             }
@@ -98,7 +103,7 @@ public class LongMapImpl<V> implements LongMap<V> {
         if (size == 0) {
             return new long[0];
         } else {
-            LongStream tableKeys = Arrays.stream(table).filter(isEntryNotEmpty()).mapToLong(Entry::getKey);
+            LongStream tableKeys = Arrays.stream(getTable()).filter(isEntryNotEmpty()).mapToLong(Entry::getKey);
 //            LongStream reserveKeys = getReserveKeys();
 //            return LongStream.concat(tableKeys, reserveKeys).toArray();
             return tableKeys.toArray();
@@ -109,7 +114,7 @@ public class LongMapImpl<V> implements LongMap<V> {
         if (size == 0) {
             return (V[]) new Object[0];
         } else {
-            Stream tableValue = Arrays.stream(table).filter(isEntryNotEmpty()).map(Entry::getValue);
+            Stream tableValue = Arrays.stream(getTable()).filter(isEntryNotEmpty()).map(Entry::getValue);
 //            Stream reserveValue = getReserveValues();
 //            return (V[]) Stream.concat(tableValue, reserveValue).toArray();
             return (V[]) tableValue.toArray();
@@ -121,9 +126,9 @@ public class LongMapImpl<V> implements LongMap<V> {
     }
 
     public void clear() {
-        Arrays.fill(table, null);
+        Arrays.fill(getTable(), null);
         capacity = DEFAULT_CAPACITY;
-        table = new Entry[capacity];
+        table = null;
 //        clearReserve();
         size = 0;
     }
@@ -134,7 +139,7 @@ public class LongMapImpl<V> implements LongMap<V> {
 
         for (int i = 0; i < maxLoop; i++) {
             int index = calculateIndex(key, i);
-            Entry entry = table[index];
+            Entry entry = getTable()[index];
 
             if (entry == null || (entry.key == key && entry.zeroForDeletedEntry == 1)) {
                 indexForInsert = index;
@@ -146,7 +151,7 @@ public class LongMapImpl<V> implements LongMap<V> {
         }
 
         if (indexForInsert != -1) {
-            table[indexForInsert] = new Entry<>(key, value);
+            getTable()[indexForInsert] = new Entry<>(key, value);
             size++;
             return value;
         }
@@ -155,38 +160,48 @@ public class LongMapImpl<V> implements LongMap<V> {
         return null;
     }
 
+    //FIXME package-private just for test, must be changed to private
+    /*private*/ Entry[] getTable() {
+        if (table == null) {
+            table = new Entry[capacity];
+        }
+        return table;
+    }
+
     private V removeEntry(int index) {
-        V value = (V) table[index].value;
-        table[index].value = null;
-        table[index].zeroForDeletedEntry = 0;
+        Entry entry = getTable()[index];
+        V value = (V) entry.value;
+        entry.value = null;
+        entry.zeroForDeletedEntry = 0;
         size--;
         return value;
     }
 
-    private void increaseTable() {
-        if (capacity < MAX_CAPACITY) {
-            capacity = capacity << 1;
+    private void changeTableSize(boolean increase) {
+        if ((increase && capacity < MAX_CAPACITY) || (!increase && capacity > DEFAULT_CAPACITY)) {
+            capacity = (increase) ? (capacity << 1) : (capacity >> 1);
+            maxLoop = Math.min(capacity / 2, 20);
             rehash();
         }
     }
 
-    private void decreaseTable() {
-        if (capacity > DEFAULT_CAPACITY) {
-            capacity = capacity >> 1;
-            rehash();
-        }
-    }
+//    private void decreaseTable() {
+//        if (capacity > DEFAULT_CAPACITY) {
+//            capacity = capacity >> 1;
+//            rehash();
+//        }
+//    }
 
     private void rehash() {
         Entry[] newTable = new Entry[capacity];
-        Stream<Entry> tableEntries = Arrays.stream(table).filter(isEntryNotEmpty());
+        Stream<Entry> tableEntries = Arrays.stream(getTable()).filter(isEntryNotEmpty());
 //        Stream<Entry> reserveEntries = getReserveEntries();
 //        Stream.concat(tableEntries, reserveEntries).forEach(e -> putForRehash(e, newTable));
 
         //FIXME see rehashEntry()
         try {
             tableEntries.forEach(e -> rehashEntry(e, newTable));
-            Arrays.fill(table, null);
+            Arrays.fill(getTable(), null);
 //        clearReserve();
             table = newTable;
         } catch (RuntimeException e) {
@@ -197,8 +212,9 @@ public class LongMapImpl<V> implements LongMap<V> {
     private int getKeyIndex(long key) {
         for (int i = 0; i < maxLoop; i++) {
             int index = calculateIndex(key, i);
-            if (table[index] != null) {
-                if (table[index].key == key && table[index].zeroForDeletedEntry == 1) {
+            Entry entry = getTable()[index];
+            if (entry != null) {
+                if (entry.key == key && entry.zeroForDeletedEntry == 1) {
                     return index;
                 }
             } else {
@@ -223,7 +239,7 @@ public class LongMapImpl<V> implements LongMap<V> {
     private void rehashEntry(Entry entry, Entry[] newTable) throws RuntimeException {
         for (int i = 0; i < maxLoop; i++) {
             int index = calculateIndex(entry.key, i);
-            if (newTable[index] == null || newTable[index].zeroForDeletedEntry == 0) {
+            if (newTable[index] == null) {
                 newTable[index] = entry;
                 return;
             }
