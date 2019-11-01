@@ -1,9 +1,7 @@
 package de.comparus.opensource.longmap;
 
 import java.util.Arrays;
-import java.util.Iterator;
 import java.util.List;
-import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
@@ -16,14 +14,12 @@ public class LongMapImpl<V> implements LongMap<V> {
 
     //FIXME in production needs to be private
     /*private*/ int capacity;
-    private int size;               //include reserve size
-    private int reserveSize;
+    private int size;
     //    private int maxLoop;
     private double topLoadFactor;
     private double bottomLoadFactor;
 
     private static final int DEFAULT_CAPACITY = 16;
-    private static final int RESERVE_CAPACITY = 10;
     private static final int MAX_CAPACITY = 1 << 30;
 
     //FIXME in production needs to be private static final
@@ -64,20 +60,19 @@ public class LongMapImpl<V> implements LongMap<V> {
 
     public V get(long key) {
         int index = getKeyIndex(key);
-        if (index != -1 && getTable()[index] != null) {
+        if (index != -1) {
             return (V) getTable()[index].value;
         }
-//        return getFromReserve(key);
-        return null;
+        return getFromReserve(key);
     }
 
     public V remove(long key) {
-        V value = null;
+        V value;
         int index = getKeyIndex(key);
         if (index != -1) {
             value = removeEntry(index);
-//        } else {
-//            value = removeInReserve(key);
+        } else {
+            value = removeInReserve(key);
         }
         if (size == 0) {
             clear();
@@ -92,7 +87,7 @@ public class LongMapImpl<V> implements LongMap<V> {
     }
 
     public boolean containsKey(long key) {
-        return getKeyIndex(key) != -1;// || containsKeyInReserve();
+        return getKeyIndex(key) != -1 || containsKeyInReserve(key);
     }
 
     public boolean containsValue(V value) {
@@ -198,13 +193,6 @@ public class LongMapImpl<V> implements LongMap<V> {
         return isRehashed;
     }
 
-//    private void decreaseTable() {
-//        if (capacity > DEFAULT_CAPACITY) {
-//            capacity = capacity >> 1;
-//            rehash();
-//        }
-//    }
-
     private boolean rehash() {
         Entry[] newTable = new Entry[capacity];
         List<Entry> entries = Arrays.stream(getTable()).filter(isEntryNotEmpty()).collect(Collectors.toList());
@@ -268,58 +256,6 @@ public class LongMapImpl<V> implements LongMap<V> {
         return e -> e != null && e.zeroForDeletedEntry == 1;
     }
 
-    private void putToReserve(long key, V value) {
-        if (reserve == null) {
-            reserve = new Reserve<>(key, value);
-        } else {
-            Reserve lastReserve = reserve;
-            while (lastReserve.hasNext()) {
-                lastReserve = lastReserve.next;
-            }
-            lastReserve.next = new Reserve<>(key, value);
-        }
-    }
-
-    private V getFromReserve(long key) {
-        if (reserve != null) {
-            Reserve lastReserve = reserve;
-            while (true) {
-                if (lastReserve.key == key) {
-                    return (V) lastReserve.value;
-                }
-                if (lastReserve.hasNext()) {
-                    lastReserve = lastReserve.next;
-                } else {
-                    break;
-                }
-            }
-        }
-        return null;
-    }
-
-//    private V removeInReserve(long key) {
-//    }
-//
-//    private boolean containsKeyInReserve() {
-//    }
-//
-//    private boolean containsValueInReserve(V value) {
-//    }
-//
-//    private LongStream getReserveKeys() {
-//
-//    }
-//
-//    private Stream getReserveValues() {
-//    }
-//
-//    private Stream<Entry> getReserveEntries() {
-//    }
-//
-//    private void clearReserve() {
-//        111
-//    }
-
     //FIXME package-private just for test, must be changed to private
     /*private*/ static class Entry<V> {
         //FIXME package-private just for test, must be changed to private
@@ -357,26 +293,81 @@ public class LongMapImpl<V> implements LongMap<V> {
         }
     }
 
-//    private static class ReserveIterator<Reserve> implements Iterator {
+    private void putToReserve(long key, V value) {
+        if (reserve == null) {
+            reserve = new Reserve<>(key, value);
+        } else {
+            Reserve lastReserve = reserve;
+            while (lastReserve.hasNext()) {
+                lastReserve = lastReserve.next;
+            }
+            lastReserve.next = new Reserve<>(key, value);
+        }
+        size++;
+    }
+
+    private V getFromReserve(long key) {
+        if (reserve != null) {
+            Reserve lastReserve = reserve;
+            while (true) {
+                if (lastReserve.key == key) {
+                    return (V) lastReserve.value;
+                }
+                if (lastReserve.hasNext()) {
+                    lastReserve = lastReserve.next;
+                } else {
+                    break;
+                }
+            }
+        }
+        return null;
+    }
+
+    private V removeInReserve(long key) {
+        if (reserve != null) {
+            if (reserve.key == key) {
+
+                //fixme code duplication
+                V value = reserve.value;
+                reserve = null;
+                size--;
+                return value;
+            }
+
+            Reserve lastReserve = reserve;
+            while (lastReserve.hasNext()) {
+                if (lastReserve.next.key == key) {
+
+                    //fixme code duplication
+                    V value = (V) lastReserve.next.value;
+                    lastReserve.next = null;
+                    size--;
+                    return value;
+                }
+                lastReserve = lastReserve.next;
+            }
+        }
+        return null;
+    }
+
+    private boolean containsKeyInReserve(long key) {
+       return getFromReserve(key) != null;
+    }
+
+//    private boolean containsValueInReserve(V value) {
+//    }
 //
-//        @Override
-//        public boolean hasNext() {
-//            return LongMapImpl.Reserve.;
-//        }
+//    private LongStream getReserveKeys() {
 //
-//        @Override
-//        public Object next() {
-//            return null;
-//        }
+//    }
 //
-//        @Override
-//        public void remove() {
+//    private Stream getReserveValues() {
+//    }
 //
-//        }
+//    private Stream<Entry> getReserveEntries() {
+//    }
 //
-//        @Override
-//        public void forEachRemaining(Consumer action) {
-//
-//        }
+//    private void clearReserve() {
+//        111
 //    }
 }
