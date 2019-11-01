@@ -2,8 +2,11 @@ package de.comparus.opensource.longmap;
 
 import org.junit.After;
 import org.junit.Before;
-import org.junit.BeforeClass;
+import org.junit.FixMethodOrder;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.MethodSorters;
+import org.junit.runners.Parameterized;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -11,38 +14,47 @@ import java.util.stream.Collectors;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-public class LongMapImplTest {
+@RunWith(Parameterized.class)
+@FixMethodOrder(MethodSorters.NAME_ASCENDING)
+public class LongMapImplRunCertainTimesTest {
+
+    public static final int TEST_TIMES = 10;
+    private static final int TEST_OBJECTS_SIZE = 100;
 
     private static int initialCapacity;
     private static int defaultMaxLoop;
     private static double topLoadFactor;
     private static double bottomLoadFactor;
 
-    private static final int TEST_OBJECTS_SIZE = 1000;
-
     //    private static LongMap<Long> map;
     //FIXME just for my test
     private static LongMapImpl<Long> map;
     private static Set<Long> testObjects;
 
-    @BeforeClass
-    public static void setup() {
-        testObjects = getTestObjects();
+    @Parameterized.Parameters
+    public static Object[][] data() {
+        return new Object[TEST_TIMES][0];
     }
 
     @Before
-    public void init() {
+    public void setUp() {
         initialCapacity = 8;
-        defaultMaxLoop = 20;
-        topLoadFactor = 0.5;
-        bottomLoadFactor = 0.1;
+        defaultMaxLoop = 30;
+        topLoadFactor = 0.4;
+        bottomLoadFactor = 0.0;
         map = new LongMapImpl<>(initialCapacity, defaultMaxLoop, topLoadFactor, bottomLoadFactor);
     }
 
     @After
-    public void close() {
+    public void tearDown() {
         map.clear();
         map = null;
+    }
+
+    @Test
+    //creates one set of test data for one iteration of all tests
+    public void $initTestObjects() {
+        testObjects = getTestObjects();
     }
 
 //    @Test
@@ -83,7 +95,6 @@ public class LongMapImplTest {
     @Test
     //needs calculateIndex() to have at least package-private access
     public void calculateIndexMatchesTableSize() {
-        //GIVEN
         for (long key : testObjects) {
             for (int i = 0; i < defaultMaxLoop; i++) {
                 //WHEN
@@ -99,8 +110,6 @@ public class LongMapImplTest {
 //    needs getTable() to have at least package-private access
 //    needs Entry.key to have at least package-private access
     public void putAllElements() {
-        //GIVEN
-        //testObject
         //WHEN
         testObjects.forEach(e -> map.put(e, e));
         List<Long> actual = Arrays.stream(map.getTable()).filter(Objects::nonNull).map(entry -> entry.key)
@@ -112,8 +121,6 @@ public class LongMapImplTest {
     @Test
 //    needs getTable() to have at least package-private access
     public void putCorrectElementsQuantity() {
-        //GIVEN
-        //testObjects;
         //WHEN
         testObjects.forEach(e -> map.put(e, e));
         int mapSize = (int) Arrays.stream(map.getTable()).filter(Objects::nonNull).count();
