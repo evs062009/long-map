@@ -1,7 +1,5 @@
 package de.comparus.opensource.longmap;
 
-import org.junit.After;
-import org.junit.Before;
 import org.junit.FixMethodOrder;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -11,19 +9,18 @@ import org.junit.runners.Parameterized;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 @RunWith(Parameterized.class)
 @FixMethodOrder(MethodSorters.NAME_ASCENDING)
 public class LongMapImplRunCertainTimesTest {
 
-    public static final int TEST_TIMES = 10;
-    private static final int TEST_OBJECTS_SIZE = 100;
+    private static final int TEST_TIMES = 30;
+    private static final int TEST_OBJECTS_SIZE = 1000;
 
     private static int initialCapacity;
     private static int defaultMaxLoop;
-    private static double topLoadFactor;
+        private static double topLoadFactor;
     private static double bottomLoadFactor;
 
     //    private static LongMap<Long> map;
@@ -36,61 +33,70 @@ public class LongMapImplRunCertainTimesTest {
         return new Object[TEST_TIMES][0];
     }
 
-    @Before
-    public void setUp() {
-        initialCapacity = 8;
-        defaultMaxLoop = 30;
-        topLoadFactor = 0.4;
-        bottomLoadFactor = 0.0;
-        map = new LongMapImpl<>(initialCapacity, defaultMaxLoop, topLoadFactor, bottomLoadFactor);
-    }
-
-    @After
-    public void tearDown() {
-        map.clear();
-        map = null;
-    }
+//    @Before
+//    public void setUp() {
+//        initialCapacity = 16;
+//        defaultMaxLoop = 10;
+//        topLoadFactor = 0.4;
+//        bottomLoadFactor = 0.0;
+//        map = new LongMapImpl<>(initialCapacity, defaultMaxLoop, topLoadFactor, bottomLoadFactor);
+//    }
+//
+//    @After
+//    public void tearDown() {
+//        map.clear();
+//        map = null;
+//    }
 
     @Test
-    //creates one set of test data for one iteration of all tests
-    public void $initTestObjects() {
+    //creates one set of test data for one loop of all tests
+    public void $initTestLoop() {
+        initialCapacity = 16;
+        defaultMaxLoop = 20;
+        topLoadFactor = 0.8;
+        bottomLoadFactor = 0.0;
+        map = new LongMapImpl<>(initialCapacity, defaultMaxLoop, topLoadFactor, bottomLoadFactor);
         testObjects = getTestObjects();
     }
 
-//    @Test
-//    public void testObjectsNotNull() {
-//        assertNotNull(testObjects);
-//    }
-//
-//    @Test
-//    public void testObjectsNotEmpty() {
-//        assertFalse(testObjects.isEmpty());
-//    }
-//
-//    @Test
-//    public void testObjectsHazZero() {
-//        assertTrue(testObjects.contains(0L));
-//    }
-//
-//    @Test
-//    public void testObjectsHazPositive() {
-//        assertTrue(testObjects.stream().anyMatch(e -> e > 0));
-//    }
-//
-//    @Test
-//    public void testObjectsHazNegative() {
-//        assertTrue(testObjects.stream().anyMatch(e -> e < 0));
-//    }
-//
-//    @Test
-//    public void testObjectsHazLongPositive() {
-//        assertTrue(testObjects.stream().anyMatch(e -> e > Integer.MAX_VALUE));
-//    }
-//
-//    @Test
-//    public void testObjectsHazLongNegative() {
-//        assertTrue(testObjects.stream().anyMatch(e -> e < Integer.MIN_VALUE));
-//    }
+    //fixme delete in production
+    //-----------------------------
+    @Test
+    public void testObjectsNotNull() {
+        assertNotNull(testObjects);
+    }
+
+    @Test
+    public void testObjectsNotEmpty() {
+        assertFalse(testObjects.isEmpty());
+    }
+
+    @Test
+    public void testObjectsHazZero() {
+        assertTrue(testObjects.contains(0L));
+    }
+
+    @Test
+    public void testObjectsHazPositive() {
+        assertTrue(testObjects.stream().anyMatch(e -> e > 0));
+    }
+
+    @Test
+    public void testObjectsHazNegative() {
+        assertTrue(testObjects.stream().anyMatch(e -> e < 0));
+    }
+
+    @Test
+    public void testObjectsHazLongPositive() {
+        assertTrue(testObjects.stream().anyMatch(e -> e > Integer.MAX_VALUE));
+    }
+
+    @Test
+    public void testObjectsHazLongNegative() {
+        assertTrue(testObjects.stream().anyMatch(e -> e < Integer.MIN_VALUE));
+    }
+    //------------------------
+
 
     @Test
     //needs calculateIndex() to have at least package-private access
@@ -114,6 +120,9 @@ public class LongMapImplRunCertainTimesTest {
         testObjects.forEach(e -> map.put(e, e));
         List<Long> actual = Arrays.stream(map.getTable()).filter(Objects::nonNull).map(entry -> entry.key)
                 .collect(Collectors.toList());
+
+        ///fixme delete
+        System.out.println("capacity = " + map.capacity);
         //THEN
         assertTrue(actual.containsAll(testObjects));
     }
