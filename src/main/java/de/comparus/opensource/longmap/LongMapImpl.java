@@ -1,9 +1,7 @@
 package de.comparus.opensource.longmap;
 
 import java.util.Arrays;
-import java.util.List;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
@@ -14,7 +12,8 @@ public class LongMapImpl<V> implements LongMap<V> {
 
     //FIXME in production needs to be private
     /*private*/ int capacity;
-    private int size;
+    /*private*/ int size;
+    /*private*/ int reserveSize;
     //    private int maxLoop;
     private double topLoadFactor;
     private double bottomLoadFactor;
@@ -34,7 +33,8 @@ public class LongMapImpl<V> implements LongMap<V> {
     }
 
     //FIXME just for test
-    public LongMapImpl(int initialCapacity, int DEFAULT_MAX_LOOP, double topLoadFactor, double bottomLoadFactor) {
+    public LongMapImpl(int initialCapacity, int DEFAULT_MAX_LOOP, double topLoadFactor,
+                       double bottomLoadFactor) {
 //    public LongMapImpl(int initialCapacity, int DEFAULT_MAX_LOOP, double bottomLoadFactor) {
         capacity = initialCapacity;
         size = 0;
@@ -87,10 +87,11 @@ public class LongMapImpl<V> implements LongMap<V> {
     }
 
     public boolean containsKey(long key) {
-        return getKeyIndex(key) != -1 || containsKeyInReserve(key);
+        return getKeyIndex(key) != -1
+                || containsKeyInReserve(key);
     }
 
-    public boolean containsValue(V value) {
+    public boolean containsValue(V value) throws NullPointerException {
         if (value == null) {
             throw new NullPointerException("value = null");
         }
@@ -99,18 +100,18 @@ public class LongMapImpl<V> implements LongMap<V> {
                 return true;
             }
         }
-//        return containsValueInReserve(value);
-        return false;
+        return containsValueInReserve(value);
     }
 
     public long[] keys() {
         if (size == 0) {
             return new long[0];
         } else {
-            LongStream tableKeys = Arrays.stream(getTable()).filter(isEntryNotEmpty()).mapToLong(Entry::getKey);
-//            LongStream reserveKeys = getReserveKeys();
-//            return LongStream.concat(tableKeys, reserveKeys).toArray();
-            return tableKeys.toArray();
+            LongStream tableKeys = Arrays.stream(getTable()).filter(isEntryNotEmpty())
+                    .mapToLong(Entry::getKey);
+            LongStream reserveKeys = getReserveKeys();
+            return LongStream.concat(tableKeys, reserveKeys).toArray();
+//            return tableKeys.toArray();
         }
     }
 
@@ -118,10 +119,11 @@ public class LongMapImpl<V> implements LongMap<V> {
         if (size == 0) {
             return (V[]) new Object[0];
         } else {
-            Stream tableValue = Arrays.stream(getTable()).filter(isEntryNotEmpty()).map(Entry::getValue);
-//            Stream reserveValue = getReserveValues();
-//            return (V[]) Stream.concat(tableValue, reserveValue).toArray();
-            return (V[]) tableValue.toArray();
+            Stream tableValue = Arrays.stream(getTable()).filter(isEntryNotEmpty())
+                    .map(Entry::getValue);
+            Stream reserveValue = getReserveValues();
+            return (V[]) Stream.concat(tableValue, reserveValue).toArray();
+//            return (V[]) tableValue.toArray();
         }
     }
 
@@ -133,10 +135,9 @@ public class LongMapImpl<V> implements LongMap<V> {
         Arrays.fill(getTable(), null);
         capacity = DEFAULT_CAPACITY;
         table = null;
-//        clearReserve();
+        clearReserve();
         size = 0;
     }
-
 
     private V putNewPair(long key, V value) {
         int indexForInsert = -1;
@@ -181,32 +182,27 @@ public class LongMapImpl<V> implements LongMap<V> {
         return value;
     }
 
-    private boolean changeTableSize(boolean increase) {
-        boolean isRehashed = false;
-        if ((increase && capacity <= MAX_CAPACITY / 2) || (!increase && capacity >= DEFAULT_CAPACITY * 2)) {
-            int oldCapacity = capacity;
+    private void changeTableSize(boolean increase) {
+//        boolean isRehashed = false;
+        if ((increase && capacity <= MAX_CAPACITY / 2)
+                || (!increase && capacity >= DEFAULT_CAPACITY * 2)) {
+//            int oldCapacity = capacity;
             capacity = (increase) ? (capacity << 1) : (capacity >> 1);
 //            maxLoop = Math.min(capacity / 2, 20);
-            isRehashed = rehash();
-            capacity = isRehashed ? capacity : oldCapacity;
+//            isRehashed = rehash();
+//            capacity = isRehashed ? capacity : oldCapacity;
+            rehash();
         }
-        return isRehashed;
     }
 
-    private boolean rehash() {
+    private void rehash() {
         Entry[] newTable = new Entry[capacity];
-        List<Entry> entries = Arrays.stream(getTable()).filter(isEntryNotEmpty()).collect(Collectors.toList());
-//        Stream<Entry> reserveEntries = getReserveEntries();
-//        Stream.concat(tableEntries, reserveEntries).forEach(e -> putForRehash(e, newTable));
-        for (Entry entry : entries) {
-            if (!putToTable(entry, newTable)) {
-                return false;
-            }
-        }
+        Stream<Entry> tableEntries = Arrays.stream(getTable()).filter(isEntryNotEmpty());
+        Stream<Entry> reserveEntries = getReserveEntries();
+        clearReserve();
+        Stream.concat(tableEntries, reserveEntries).forEach(e -> putToTable(e, newTable));
         Arrays.fill(getTable(), null);
-//        clearReserve();
         table = newTable;
-        return true;
     }
 
     private int getKeyIndex(long key) {
@@ -237,19 +233,16 @@ public class LongMapImpl<V> implements LongMap<V> {
         return Math.abs((int) (key ^ (key >>> 32)));
     }
 
-    private boolean putToTable(Entry entry, Entry[] newTable) {
+    private void putToTable(Entry entry, Entry[] newTable) {
 //        for (int i = 0; i < maxLoop; i++) {
         for (int i = 0; i < DEFAULT_MAX_LOOP; i++) {
             int index = calculateIndex(entry.key, i);
             if (newTable[index] == null) {
                 newTable[index] = entry;
-                return true;
+                return;
             }
         }
-//        if (putToReserve(entry.key, (V) entry.value) == null) {
-//            throw new RuntimeException("Error in rehash.");
-//        }
-        return false;
+        putToReserve(entry.key, (V) entry.value);
     }
 
     private Predicate<Entry> isEntryNotEmpty() {
@@ -269,6 +262,10 @@ public class LongMapImpl<V> implements LongMap<V> {
             this.zeroForDeletedEntry = 1;
         }
 
+        private Entry(Reserve<V> reserve) {
+            this(reserve.key, reserve.value);
+        }
+
         private long getKey() {
             return key;
         }
@@ -278,8 +275,11 @@ public class LongMapImpl<V> implements LongMap<V> {
         }
     }
 
-    private static class Reserve<V> {
-        private long key;
+    //fixme in production has to be private
+    /*private*/ static class Reserve<V> {
+
+        //fixme in production has to be private
+        /*private*/ long key;
         private V value;
         private Reserve next;
 
@@ -293,7 +293,8 @@ public class LongMapImpl<V> implements LongMap<V> {
         }
     }
 
-    private void putToReserve(long key, V value) {
+    //fixme in production has to be private
+    /*private*/ void putToReserve(long key, V value) {
         if (reserve == null) {
             reserve = new Reserve<>(key, value);
         } else {
@@ -304,9 +305,11 @@ public class LongMapImpl<V> implements LongMap<V> {
             lastReserve.next = new Reserve<>(key, value);
         }
         size++;
+        reserveSize++;
     }
 
-    private V getFromReserve(long key) {
+    //fixme in production has to be private
+    /*private*/ V getFromReserve(long key) {
         if (reserve != null) {
             Reserve lastReserve = reserve;
             while (true) {
@@ -323,51 +326,83 @@ public class LongMapImpl<V> implements LongMap<V> {
         return null;
     }
 
-    private V removeInReserve(long key) {
+    //fixme in production has to be private
+    /*private*/ V removeInReserve(long key) {
+        V value = null;
         if (reserve != null) {
             if (reserve.key == key) {
-
-                //fixme code duplication
-                V value = reserve.value;
+                value = reserve.value;
                 reserve = null;
                 size--;
-                return value;
-            }
-
-            Reserve lastReserve = reserve;
-            while (lastReserve.hasNext()) {
-                if (lastReserve.next.key == key) {
-
-                    //fixme code duplication
-                    V value = (V) lastReserve.next.value;
-                    lastReserve.next = null;
-                    size--;
-                    return value;
+            } else {
+                Reserve lastReserve = reserve;
+                while (lastReserve.hasNext()) {
+                    if (lastReserve.next.key == key) {
+                        value = removeNext(lastReserve);
+                    }
+                    lastReserve = lastReserve.next;
                 }
-                lastReserve = lastReserve.next;
             }
         }
-        return null;
+        return value;
     }
 
-    private boolean containsKeyInReserve(long key) {
-       return getFromReserve(key) != null;
+    private V removeNext(Reserve element) {
+        V value = (V) element.value;
+        element.next = null;
+        size--;
+        return value;
     }
 
-//    private boolean containsValueInReserve(V value) {
-//    }
-//
-//    private LongStream getReserveKeys() {
-//
-//    }
-//
-//    private Stream getReserveValues() {
-//    }
-//
-//    private Stream<Entry> getReserveEntries() {
-//    }
-//
-//    private void clearReserve() {
-//        111
-//    }
+    //fixme in production has to be private
+    /*private*/ boolean containsKeyInReserve(long key) {
+        return getReserveKeys().anyMatch(k -> k == key);
+    }
+
+    //fixme in production has to be private
+    /*private*/ boolean containsValueInReserve(V value) throws NullPointerException {
+        if (value == null) {
+            throw new NullPointerException("value = null");
+        }
+        return getReserveValues().anyMatch(value::equals);
+    }
+
+    //fixme in production has to be private
+    /*private*/ LongStream getReserveKeys() {
+        return getReserveStream().mapToLong(r -> r.key);
+//        if (reserve != null) {
+//            List<Long> keys = new ArrayList<>(Collections.singletonList(reserve.key));
+//            Reserve lastReserve = reserve;
+//            while (lastReserve.hasNext()) {
+//                keys.add(lastReserve.next.key);
+//                lastReserve = lastReserve.next;
+//            }
+//            return keys.stream().mapToLong(e -> e);
+//        }
+//        return LongStream.empty();
+    }
+
+    //fixme in production has to be private
+    /*private*/ Stream<V> getReserveValues() {
+        return getReserveStream().map(r -> r.value);
+    }
+
+    //fixme in production has to be private
+    /*private*/ Stream<Entry> getReserveEntries() {
+        return getReserveStream().map(Entry::new);
+    }
+
+    //fixme in production has to be private
+    /*private*/ void clearReserve() {
+        reserve = null;
+        reserveSize = 0;
+    }
+
+    //fixme in production has to be private
+    /*private*/ Stream<Reserve<V>> getReserveStream() {
+        if (reserve == null) {
+            return Stream.empty();
+        }
+        return Stream.iterate(reserve, r -> r.next).limit(reserveSize);
+    }
 }
