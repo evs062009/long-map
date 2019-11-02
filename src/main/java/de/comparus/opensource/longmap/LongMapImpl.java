@@ -1,6 +1,7 @@
 package de.comparus.opensource.longmap;
 
 import java.util.Arrays;
+import java.util.Objects;
 import java.util.function.Predicate;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
@@ -16,6 +17,10 @@ public class LongMapImpl<V> implements LongMap<V> {
     /*private*/ int capacity;
     /*private*/ int size;
     /*private*/ int reserveSize;
+
+    //fixme delete in production
+    int maxReserveSize;
+
     //    private int maxLoop;
     private double topLoadFactor;
     private double bottomLoadFactor;
@@ -53,6 +58,10 @@ public class LongMapImpl<V> implements LongMap<V> {
 
         if (size <= MAX_CAPACITY) {
             if ((double) (size + 1) / capacity > topLoadFactor) {
+
+                //fixme delete
+//                System.out.println("rehash from put");
+                //
                 changeTableSize(true);
             }
             return putNewPair(key, value);
@@ -160,6 +169,9 @@ public class LongMapImpl<V> implements LongMap<V> {
 
         if (indexForInsert != -1) {
             getTable()[indexForInsert] = new Entry<>(key, value);
+            //fixme delete
+//            printInfo(key + " put to table");
+
             size++;
         } else {
             putToReserve(key, value);
@@ -185,15 +197,19 @@ public class LongMapImpl<V> implements LongMap<V> {
     }
 
     private void changeTableSize(boolean increase) {
-//        boolean isRehashed = false;
         if ((increase && capacity <= MAX_CAPACITY / 2)
                 || (!increase && capacity >= DEFAULT_CAPACITY * 2)) {
-//            int oldCapacity = capacity;
             capacity = (increase) ? (capacity << 1) : (capacity >> 1);
-//            maxLoop = Math.min(capacity / 2, 20);
-//            isRehashed = rehash();
-//            capacity = isRehashed ? capacity : oldCapacity;
+
+            //fixme delete
+//            System.out.println("elements in OLD table: " + Arrays.stream(table)
+//                    .filter(Objects::nonNull).count());
+            //
             rehash();
+
+            //fixme delete
+//            System.out.println("elements in NEW table: " + Arrays.stream(table)
+//                    .filter(Objects::nonNull).count());
         }
     }
 
@@ -310,6 +326,20 @@ public class LongMapImpl<V> implements LongMap<V> {
         }
         size++;
         reserveSize++;
+
+        //fixme delete in ptoduction
+        if (reserveSize > maxReserveSize) {
+            maxReserveSize = reserveSize;
+        }
+//        printInfo(key + " put to reserve");
+        //
+        if (reserveSize > Math.max(10, size / 20)) {
+
+            //fixme delete
+//            System.out.println("rehash form reserve");
+            //
+            changeTableSize(true);
+        }
     }
 
     //fixme in production has to be private
@@ -400,4 +430,14 @@ public class LongMapImpl<V> implements LongMap<V> {
         }
         return Stream.iterate(reserve, r -> r.next).limit(reserveSize);
     }
+
+    //fixme delete
+//    private void printInfo(String message) {
+//        System.out.println(message);
+//        System.out.print("in table: ");
+//        Arrays.stream(table).forEach(e -> System.out.print((e == null) ? ("*, ") : (e.key + ", ")));
+//        System.out.print("\nreserve: ");
+//        getReserveKeys().forEach(e -> System.out.print(e + ", "));
+//        System.out.println();
+//    }
 }
