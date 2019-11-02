@@ -11,6 +11,7 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.junit.Assert.*;
 
@@ -67,40 +68,40 @@ public class LongMapImplRunCertainTimesTest {
     //-----------------------------
 
     //test Objects Set---------------
-    @Test
-    public void test11ObjectsNotNull() {
-        assertNotNull(testObjects);
-    }
-
-    @Test
-    public void test12ObjectsNotEmpty() {
-        assertFalse(testObjects.isEmpty());
-    }
-
-    @Test
-    public void test13ObjectsHazZero() {
-        assertTrue(testObjects.contains(0L));
-    }
-
-    @Test
-    public void test14ObjectsHazPositive() {
-        assertTrue(testObjects.stream().anyMatch(e -> e > 0));
-    }
-
-    @Test
-    public void test15ObjectsHazNegative() {
-        assertTrue(testObjects.stream().anyMatch(e -> e < 0));
-    }
-
-    @Test
-    public void test16ObjectsHazLongPositive() {
-        assertTrue(testObjects.stream().anyMatch(e -> e > Integer.MAX_VALUE));
-    }
-
-    @Test
-    public void test17ObjectsHazLongNegative() {
-        assertTrue(testObjects.stream().anyMatch(e -> e < Integer.MIN_VALUE));
-    }
+//    @Test
+//    public void test11ObjectsNotNull() {
+//        assertNotNull(testObjects);
+//    }
+//
+//    @Test
+//    public void test12ObjectsNotEmpty() {
+//        assertFalse(testObjects.isEmpty());
+//    }
+//
+//    @Test
+//    public void test13ObjectsHazZero() {
+//        assertTrue(testObjects.contains(0L));
+//    }
+//
+//    @Test
+//    public void test14ObjectsHazPositive() {
+//        assertTrue(testObjects.stream().anyMatch(e -> e > 0));
+//    }
+//
+//    @Test
+//    public void test15ObjectsHazNegative() {
+//        assertTrue(testObjects.stream().anyMatch(e -> e < 0));
+//    }
+//
+//    @Test
+//    public void test16ObjectsHazLongPositive() {
+//        assertTrue(testObjects.stream().anyMatch(e -> e > Integer.MAX_VALUE));
+//    }
+//
+//    @Test
+//    public void test17ObjectsHazLongNegative() {
+//        assertTrue(testObjects.stream().anyMatch(e -> e < Integer.MIN_VALUE));
+//    }
 
     //fixme delete in production?
     // test Reserve-------------------------------------
@@ -142,11 +143,73 @@ public class LongMapImplRunCertainTimesTest {
     public void test24GetFromReserveReturnsCorrectElement() {
         //GIVEN
         //filling map from test21
-        long key = testObjects.iterator().next();
+        long key = testObjects.stream().findAny().get();
         Long expected = key;
         //WHEN
         Long actual = map.getFromReserve(key);
+        //THEN
         assertEquals(expected, actual);
+    }
+
+//    @Test
+//    public void test25GetReserveKeysReturnsCorrectData() {
+//        //GIVEN
+//        //filling map from test21
+//        //WHEN
+//        List<Long> actual = map.getReserveKeys().boxed().collect(Collectors.toList());
+//        //THEN
+//        assertTrue(actual.containsAll(testObjects) && actual.size() == testObjects.size());
+//    }
+
+//    @Test
+//    public void test26GetReserveValuesReturnsCorrectData() {
+//        //GIVEN
+//        //filling map from test21
+//        //WHEN
+//        List<Long> actual = map.getReserveValues().collect(Collectors.toList());
+//        //THEN
+//        assertTrue(actual.containsAll(testObjects) && actual.size() == testObjects.size());
+//    }
+
+//    @Test
+//    public void test27GetReserveEntriesReturnsCorrectData() {
+//        //GIVEN
+//        //filling map from test21
+//        List<LongMapImpl.Entry> expected = testObjects.stream().map(e -> new LongMapImpl.Entry(e, e))
+//                .collect(Collectors.toList());
+//        //WHEN
+//        List<LongMapImpl.Entry> actual = map.getReserveEntries().collect(Collectors.toList());
+//        //THEN
+//        assertTrue(actual.containsAll(expected) && actual.size() == expected.size());
+//    }
+
+    @Test
+    public void test28RemoveInReserveDeletedElement() {
+        //GIVEN
+        //filling map from test21
+
+        //fixme run ever this or next string
+        long key = testObjects.stream().findAny().get();
+//        long key = testObjects.stream().findFirst().get();
+        int expectedSize = testObjects.size() - 1;
+
+        Set<Long> expected = testObjects.stream().filter(e -> e != key).collect(Collectors.toSet());
+        //WHEN
+        map.removeInReserve(key);
+        List<Long> actual = map.getReserveKeys().boxed().collect(Collectors.toList());
+        //THEN
+        assertTrue("actual list does not match expected set", actual.containsAll(expected));
+        assertFalse("actual list contains deleted key", actual.contains(key));
+        assertEquals("actual size does not match expected size", actual.size(), expectedSize);
+    }
+
+    @Test
+    public void test29ClearReserveReallyCleared() {
+        //WHEN
+        map.clearReserve();
+        //THEN
+        assertTrue(map.reserve == null && map.reserveSize == 0
+                && map.getReserveStream().count() == 0);
     }
 
 

@@ -8,7 +8,9 @@ import java.util.stream.Stream;
 public class LongMapImpl<V> implements LongMap<V> {
 
     private Entry[] table;
-    private Reserve<V> reserve;
+
+    //FIXME in production needs to be private
+    /*private*/ Reserve<V> reserve;
 
     //FIXME in production needs to be private
     /*private*/ int capacity;
@@ -256,13 +258,15 @@ public class LongMapImpl<V> implements LongMap<V> {
         private V value;
         private byte zeroForDeletedEntry;         // == 0, when entry marked as deleted
 
-        private Entry(long key, V value) {
+        //FIXME package-private just for test, must be changed to private
+        /*private*/ Entry(long key, V value) {
             this.key = key;
             this.value = value;
             this.zeroForDeletedEntry = 1;
         }
 
-        private Entry(Reserve<V> reserve) {
+        //FIXME package-private just for test, must be changed to private
+        /*private*/ Entry(Reserve<V> reserve) {
             this(reserve.key, reserve.value);
         }
 
@@ -332,63 +336,54 @@ public class LongMapImpl<V> implements LongMap<V> {
         if (reserve != null) {
             if (reserve.key == key) {
                 value = reserve.value;
-                reserve = null;
+                if (reserve.next == null) {
+                    reserve = null;
+                    reserveSize = 0;
+                } else {
+                    reserve = reserve.next;
+                    reserveSize--;
+                }
                 size--;
             } else {
-                Reserve lastReserve = reserve;
-                while (lastReserve.hasNext()) {
-                    if (lastReserve.next.key == key) {
-                        value = removeNext(lastReserve);
+                Reserve previous = reserve;
+                while (previous.hasNext()) {
+                    Reserve current = previous.next;
+                    if (current.key == key) {
+                        value = (V) current.value;
+                        previous.next = current.next;
+                        size--;
+                        reserveSize--;
+                        break;
                     }
-                    lastReserve = lastReserve.next;
+                    previous = current;
                 }
             }
         }
         return value;
     }
 
-    private V removeNext(Reserve element) {
-        V value = (V) element.value;
-        element.next = null;
-        size--;
-        return value;
-    }
-
-    //fixme in production has to be private
-    /*private*/ boolean containsKeyInReserve(long key) {
+    private boolean containsKeyInReserve(long key) {
         return getReserveKeys().anyMatch(k -> k == key);
     }
 
-    //fixme in production has to be private
-    /*private*/ boolean containsValueInReserve(V value) throws NullPointerException {
+    private boolean containsValueInReserve(V value) throws NullPointerException {
         if (value == null) {
             throw new NullPointerException("value = null");
         }
         return getReserveValues().anyMatch(value::equals);
     }
 
+    //test is not needed
     //fixme in production has to be private
     /*private*/ LongStream getReserveKeys() {
         return getReserveStream().mapToLong(r -> r.key);
-//        if (reserve != null) {
-//            List<Long> keys = new ArrayList<>(Collections.singletonList(reserve.key));
-//            Reserve lastReserve = reserve;
-//            while (lastReserve.hasNext()) {
-//                keys.add(lastReserve.next.key);
-//                lastReserve = lastReserve.next;
-//            }
-//            return keys.stream().mapToLong(e -> e);
-//        }
-//        return LongStream.empty();
     }
 
-    //fixme in production has to be private
-    /*private*/ Stream<V> getReserveValues() {
+    private Stream<V> getReserveValues() {
         return getReserveStream().map(r -> r.value);
     }
 
-    //fixme in production has to be private
-    /*private*/ Stream<Entry> getReserveEntries() {
+    private Stream<Entry> getReserveEntries() {
         return getReserveStream().map(Entry::new);
     }
 
