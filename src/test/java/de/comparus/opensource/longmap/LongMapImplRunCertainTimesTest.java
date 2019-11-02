@@ -9,6 +9,7 @@ import org.junit.runners.Parameterized;
 
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.LongStream;
 
 import static org.junit.Assert.*;
 
@@ -21,10 +22,8 @@ public class LongMapImplRunCertainTimesTest {
 
     private static int initialCapacity;
     private static int defaultMaxLoop;
-    private static double topLoadFactor;
-    private static double bottomLoadFactor;
 
-    static Random random;
+    private static Random random;
 
     //    private static LongMap<Long> map;
     //FIXME just for my test
@@ -46,11 +45,12 @@ public class LongMapImplRunCertainTimesTest {
         random = new Random();
         initialCapacity = 16;
         defaultMaxLoop = 10;
-        topLoadFactor = 0.8;
-        bottomLoadFactor = 0.0;
+        double topLoadFactor = 0.8;
+        double bottomLoadFactor = 0.0;
         map = new LongMapImpl<>(initialCapacity, defaultMaxLoop, topLoadFactor, bottomLoadFactor);
+
+        //real size can be different due to possible repetition
         testObjects = getTestObjects();
-//        testObjects = get27TestObjects();
     }
 
 
@@ -221,22 +221,19 @@ public class LongMapImplRunCertainTimesTest {
         }
     }
 
-
-    // ----------------------
     @Test
-
 //    needs getTable() to have at least package-private access
 //    needs Entry.key to have at least package-private access
     public void test41PutReturnsCorrectValue() {
         //GIVEN
         //test objects from $test
-        //fixme delete in product
+        //fixme delete in production
         if (map.reserveSize != 0) {
             fail("reserve is not empty");
         }
 
-        //WHEN
         for (Long expected : testObjects) {
+            //WHEN
             Long actual = map.put(expected, expected);
             //THEN
             assertTrue(actual != null && actual.equals(expected));
@@ -276,58 +273,227 @@ public class LongMapImplRunCertainTimesTest {
         assertEquals(expected, actual);
     }
 
-//    @Test
-//    //needs table to have at least package-private access
-//    public void putInsertedAllElementsWithRehash() {
-//        //WHEN
-//        for (Long obj : testObjects) {
-//            map.put(obj, obj);
-//        }
-//        int mapSize = (int) Arrays.stream(map.table).filter(Objects::nonNull).count();
-//        //THEN
-//        Assert.assertTrue(Arrays.asList(map.table).containsAll(testObjects));
-//        Assert.assertEquals(mapSize, testObjects.size());
-//    }
+    @Test(expected = NullPointerException.class)
+    public void test44PutThrowsExceptionWithNullValue() {
+        //WHEN
+        map.put(0, null);
+    }
 
-    //test put of existing element without rehash
+    @Test
+    public void test51SizeReturnsCorrectNumber() {
+        //GIVEN
+        //filling map from test41
+        int expected = testObjects.size();
+        //THEN
+        assertEquals(expected, map.size());
+    }
 
-    //test put of existing element with rehash
+    @Test
+    public void test52IsEmptyReturnFalseIfMapNotEmpty() {
+        //GIVEN
+        //filling map from test41
+        //THEN
+        assertFalse(map.isEmpty());
+    }
 
-//    @Test
-//    public void get() {
-//    }
-//
-//    @Test
-//    public void remove() {
-//    }
-//
-//    @Test
-//    public void isEmpty() {
-//    }
-//
-//    @Test
-//    public void containsKey() {
-//    }
-//
-//    @Test
-//    public void containsValue() {
-//    }
-//
-//    @Test
-//    public void keys() {
-//    }
-//
-//    @Test
-//    public void values() {
-//    }
-//
-//    @Test
-//    public void size() {
-//    }
-//
-//    @Test
-//    public void clear() {
-//    }
+    @Test
+    public void test53ContainsKeyReturnsTrueWithExistingKey() {
+        //GIVEN
+        //filling map from test41
+        //WHEN
+        boolean actual = map.containsKey(-1);
+        //THEN
+        assertTrue(actual);
+    }
+
+    @Test
+    public void test54ContainsKeyReturnsFalseWithNonexistentKey() {
+        //GIVEN
+        //filling map from test41
+        //WHEN
+        boolean actual = map.containsKey(0);
+        //THEN
+        assertFalse(actual);
+    }
+
+    @Test
+    public void test55ContainsValueReturnsTrueWithExistingValue() {
+        //GIVEN
+        //filling map from test41
+        //WHEN
+        boolean actual = map.containsValue(-1L);
+        //THEN
+        assertTrue(actual);
+    }
+
+    @Test
+    public void test56ContainsValueReturnsFalseWithNonexistentValue() {
+        //GIVEN
+        //filling map from test41
+        //WHEN
+        boolean actual = map.containsValue(0L);
+        //THEN
+        assertFalse(actual);
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void test57ContainsValueThrowsExceptionWithNullValue() {
+        //GIVEN
+        //filling map from test41
+        //WHEN
+        map.containsValue(null);
+    }
+
+    @Test
+    public void test61GetReturnsCorrectValue() {
+        //GIVEN
+        //filling map from test41
+        for (Long expected : testObjects) {
+            //WHEN
+            Long actual = map.get(expected);
+            //THEN
+            assertEquals(expected, actual);
+        }
+    }
+
+    @Test
+    public void test62GetReturnsNullWithNonexistentKey() {
+        //GIVEN
+        //filling map from test41
+        //WHEN
+        Long actual = map.get(0);
+        //THEN
+        assertNull(actual);
+    }
+
+    @Test
+    public void test63KeysReturnsCorrectSequence() {
+        //GIVEN
+        //filling map from test41
+        //WHEN
+        List<Long> actual = Arrays.stream(map.keys()).boxed().collect(Collectors.toList());
+        //THEN
+        assertTrue(actual.containsAll(testObjects));
+    }
+
+    @Test
+    public void test64ValuesReturnsCorrectSequence() {
+        //GIVEN
+        //filling map from test41
+        //WHEN
+        List<Long> actual = Arrays.stream(map.values()).collect(Collectors.toList());
+        //THEN
+        assertTrue(actual.containsAll(testObjects));
+    }
+
+    @Test
+    public void test71RemoveReturnsCorrectValue() {
+        //GIVEN
+        //filling map from test41
+        long expected = 1;
+        //WHEN
+        long actual = map.remove(expected);
+        //THEN
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    public void test72GetNotFindRemovedElement() {
+        //GIVEN
+        //map with deleted element from test71
+        Long expected = map.get(1);
+        //WHEN
+        //THEN
+        assertNull(expected);
+    }
+
+    @Test
+    public void test73SizeReturnsCorrectNumberAfterRemoving() {
+        //GIVEN
+        //map with deleted element from test71
+        int expected = testObjects.size() - 1;
+        //WHEN
+        int actual = (int) map.size();
+        //THEN
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    public void test74KeysReturnsCorrectSequenceAfterRemoving() {
+        //GIVEN
+        //map with deleted element from test71
+        long deletedKey = 1;
+        //WHEN
+        List<Long> actual = Arrays.stream(map.keys()).boxed().collect(Collectors.toList());
+        //THEN
+        assertFalse(actual.contains(deletedKey));
+    }
+
+
+    @Test
+    public void test81NoElementsAfterClear() {
+        //GIVEN
+        //map with deleted element from test71
+        //WHEN
+        map.clear();
+        boolean noElementsInTable = Arrays.stream(map.getTable()).noneMatch(Objects::nonNull);
+        boolean noElementsInReserve = map.getReserveStream().count() == 0;
+        //THEN
+        assertTrue(noElementsInTable && noElementsInReserve);
+    }
+
+    @Test
+    public void test82SizeZeroAfterClearing() {
+        //GIVEN
+        //clear map from test81
+        int expected = 0;
+        //WHEN
+        int actual = (int) map.size();
+        //THEN
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    public void test83IsEmptyReturnsTrueAfterClearing() {
+        //GIVEN
+        //clear map from test81
+        //THEN
+        assertTrue(map.isEmpty());
+    }
+
+    @Test
+    public void test84KeysReturnsEmptyArrayAfterClearing() {
+        //GIVEN
+        //clear map from test81
+        int expected = 0;
+        //WHEN
+        int actual = map.keys().length;
+        //THEN
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    public void test85ValuesReturnsNullAfterClearing() {
+        //GIVEN
+        //clear map from test81
+        //THEN
+        assertNull(map.values());
+    }
+
+    @Test
+    public void test91PutOfExistingElementReplaceValue() {
+        //GIVEN
+        long key = 0;
+        Long value = 1L;
+        Long expected = 2L;
+        map.put(key, value);
+        //WHEN
+        map.put(key, expected);
+        Long actual = map.get(key);
+        //THEN
+        assertEquals(expected, actual);
+    }
+
 
     //fixme delete
     @AfterClass
@@ -336,35 +502,44 @@ public class LongMapImplRunCertainTimesTest {
         System.out.println("max reserve size = " + maxReserveSize);
     }
 
-    private static Set<Long> get27TestObjects() {
-        Set<Long> longs = random.longs(13, 1, 20).boxed()
-                .collect(Collectors.toSet());
-        addRandomsToTestObjects(longs, 13, -20, 0);
-        longs.add(0L);
-        return longs;
-    }
-
     private static Set<Long> getTestObjects() {
-        Set<Long> longs = random.longs((int) (TEST_OBJECTS_SIZE * 0.21),
-                Integer.MAX_VALUE + 1L, Long.MAX_VALUE).boxed().collect(Collectors.toSet());
-        addRandomsToTestObjects(longs, (int) (TEST_OBJECTS_SIZE * 0.21), Long.MIN_VALUE,
-                Integer.MIN_VALUE);
-        addRandomsToTestObjects(longs, (int) (TEST_OBJECTS_SIZE * 0.21), Short.MAX_VALUE + 1L,
-                Integer.MAX_VALUE + 1L);
-        addRandomsToTestObjects(longs, (int) (TEST_OBJECTS_SIZE * 0.21), Integer.MIN_VALUE,
-                Short.MIN_VALUE);
-        addRandomsToTestObjects(longs, (int) (TEST_OBJECTS_SIZE * 0.075), Byte.MAX_VALUE + 1,
-                Short.MAX_VALUE + 1);
-        addRandomsToTestObjects(longs, (int) (TEST_OBJECTS_SIZE * 0.075), Short.MIN_VALUE,
-                Byte.MIN_VALUE);
-        addRandomsToTestObjects(longs, (int) (TEST_OBJECTS_SIZE * 0.005), 1,
-                Byte.MAX_VALUE + 1);
-        addRandomsToTestObjects(longs, (int) (TEST_OBJECTS_SIZE * 0.005 - 1), Byte.MIN_VALUE, 0);
-        longs.add(0L);
-        return longs;
+        int half = TEST_OBJECTS_SIZE / 2 - 1;
+        LongStream stream = LongStream.of(-1L, 1L);
+        LongStream positiveRandom = random.longs(half, 2, Long.MAX_VALUE);
+        LongStream negativeRandom = random.longs(half, Long.MIN_VALUE, -1);
+        return LongStream.concat(stream, LongStream.concat(positiveRandom, negativeRandom)).boxed()
+                .collect(Collectors.toSet());
     }
 
-    private static void addRandomsToTestObjects(Set<Long> longs, int quantity, long from, long to) {
-        longs.addAll(random.longs(quantity, from, to).boxed().collect(Collectors.toList()));
-    }
+//    private static Set<Long> get27TestObjects() {
+//        Set<Long> longs = random.longs(13, 1, 20).boxed()
+//                .collect(Collectors.toSet());
+//        addRandomsToTestObjects(longs, 13, -20, 0);
+//        longs.add(0L);
+//        return longs;
+//    }
+
+//    private static Set<Long> getTestObjects() {
+//        Set<Long> longs = random.longs((int) (TEST_OBJECTS_SIZE * 0.21),
+//                Integer.MAX_VALUE + 1L, Long.MAX_VALUE).boxed().collect(Collectors.toSet());
+//        addRandomsToTestObjects(longs, (int) (TEST_OBJECTS_SIZE * 0.21), Long.MIN_VALUE,
+//                Integer.MIN_VALUE);
+//        addRandomsToTestObjects(longs, (int) (TEST_OBJECTS_SIZE * 0.21), Short.MAX_VALUE + 1L,
+//                Integer.MAX_VALUE + 1L);
+//        addRandomsToTestObjects(longs, (int) (TEST_OBJECTS_SIZE * 0.21), Integer.MIN_VALUE,
+//                Short.MIN_VALUE);
+//        addRandomsToTestObjects(longs, (int) (TEST_OBJECTS_SIZE * 0.075), Byte.MAX_VALUE + 1,
+//                Short.MAX_VALUE + 1);
+//        addRandomsToTestObjects(longs, (int) (TEST_OBJECTS_SIZE * 0.075), Short.MIN_VALUE,
+//                Byte.MIN_VALUE);
+//        addRandomsToTestObjects(longs, (int) (TEST_OBJECTS_SIZE * 0.005), 1,
+//                Byte.MAX_VALUE + 1);
+//        addRandomsToTestObjects(longs, (int) (TEST_OBJECTS_SIZE * 0.005 - 1), Byte.MIN_VALUE, 0);
+//        longs.add(0L);
+//        return longs;
+//    }
+
+//    private static void addRandomsToTestObjects(Set<Long> longs, int quantity, long from, long to) {
+//        longs.addAll(random.longs(quantity, from, to).boxed().collect(Collectors.toList()));
+//    }
 }

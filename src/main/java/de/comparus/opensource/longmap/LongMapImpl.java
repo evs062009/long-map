@@ -122,13 +122,12 @@ public class LongMapImpl<V> implements LongMap<V> {
                     .mapToLong(Entry::getKey);
             LongStream reserveKeys = getReserveKeys();
             return LongStream.concat(tableKeys, reserveKeys).toArray();
-//            return tableKeys.toArray();
         }
     }
 
     public V[] values() {
         if (size == 0) {
-            return (V[]) new Object[0];
+            return null;
         } else {
             Stream tableValue = Arrays.stream(getTable()).filter(isEntryNotEmpty())
                     .map(Entry::getValue);
@@ -174,7 +173,7 @@ public class LongMapImpl<V> implements LongMap<V> {
 
             size++;
         } else {
-            putToReserve(key, value);
+            putToReserve(key, value, true);
         }
         return value;
     }
@@ -190,7 +189,6 @@ public class LongMapImpl<V> implements LongMap<V> {
     private V removeEntry(int index) {
         Entry entry = getTable()[index];
         V value = (V) entry.value;
-        entry.value = null;
         entry.zeroForDeletedEntry = 0;
         size--;
         return value;
@@ -260,7 +258,7 @@ public class LongMapImpl<V> implements LongMap<V> {
                 return;
             }
         }
-        putToReserve(entry.key, (V) entry.value);
+        putToReserve(entry.key, (V) entry.value, false);
     }
 
     private Predicate<Entry> isEntryNotEmpty() {
@@ -314,7 +312,7 @@ public class LongMapImpl<V> implements LongMap<V> {
     }
 
     //fixme in production has to be private
-    /*private*/ void putToReserve(long key, V value) {
+    /*private*/ void putToReserve(long key, V value, boolean isSizeIncrease) {
         if (reserve == null) {
             reserve = new Reserve<>(key, value);
         } else {
@@ -324,7 +322,9 @@ public class LongMapImpl<V> implements LongMap<V> {
             }
             lastReserve.next = new Reserve<>(key, value);
         }
-        size++;
+        if (isSizeIncrease) {
+            size++;
+        }
         reserveSize++;
 
         //fixme delete in ptoduction
