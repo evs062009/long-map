@@ -6,7 +6,10 @@ import org.junit.runner.RunWith;
 import org.junit.runners.MethodSorters;
 import org.junit.runners.Parameterized;
 
-import java.util.*;
+import java.util.List;
+import java.util.Optional;
+import java.util.Random;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.junit.Assert.*;
@@ -20,7 +23,7 @@ public class LongMapImplRunCertainTimesTest {
 
     private static int initialCapacity;
     private static int defaultMaxLoop;
-        private static double topLoadFactor;
+    private static double topLoadFactor;
     private static double bottomLoadFactor;
 
     //    private static LongMap<Long> map;
@@ -49,6 +52,7 @@ public class LongMapImplRunCertainTimesTest {
 //    }
 
     @Test
+    //has to be a first test
     //creates one set of test data for one loop of all tests
     public void $initTestLoop() {
         initialCapacity = 16;
@@ -61,82 +65,133 @@ public class LongMapImplRunCertainTimesTest {
 
     //fixme delete in production
     //-----------------------------
+
+    //test Objects Set---------------
     @Test
-    public void testObjectsNotNull() {
+    public void test11ObjectsNotNull() {
         assertNotNull(testObjects);
     }
 
     @Test
-    public void testObjectsNotEmpty() {
+    public void test12ObjectsNotEmpty() {
         assertFalse(testObjects.isEmpty());
     }
 
     @Test
-    public void testObjectsHazZero() {
+    public void test13ObjectsHazZero() {
         assertTrue(testObjects.contains(0L));
     }
 
     @Test
-    public void testObjectsHazPositive() {
+    public void test14ObjectsHazPositive() {
         assertTrue(testObjects.stream().anyMatch(e -> e > 0));
     }
 
     @Test
-    public void testObjectsHazNegative() {
+    public void test15ObjectsHazNegative() {
         assertTrue(testObjects.stream().anyMatch(e -> e < 0));
     }
 
     @Test
-    public void testObjectsHazLongPositive() {
+    public void test16ObjectsHazLongPositive() {
         assertTrue(testObjects.stream().anyMatch(e -> e > Integer.MAX_VALUE));
     }
 
     @Test
-    public void testObjectsHazLongNegative() {
+    public void test17ObjectsHazLongNegative() {
         assertTrue(testObjects.stream().anyMatch(e -> e < Integer.MIN_VALUE));
     }
-    //------------------------
 
+    //fixme delete in production?
+    // test Reserve-------------------------------------
 
     @Test
-    //needs calculateIndex() to have at least package-private access
-    public void calculateIndexMatchesTableSize() {
-        for (long key : testObjects) {
-            for (int i = 0; i < defaultMaxLoop; i++) {
-                //WHEN
-                int actual = map.calculateIndex(key, i);
-                //THEN
-                assertTrue(String.format("index %s (key %s, iteration %s) doesn`t match interval",
-                        actual, key, i), actual >= 0 && actual < initialCapacity);
-            }
-        }
+    public void test21PutToReserveCorrectElementQuantity() {
+        //GIVEN
+        //test objects from $test
+        testObjects.forEach(e -> map.putToReserve(e, e));
+        //WHEN
+        long actual = map.getReserveStream().count();
+        //THEN
+        assertEquals(testObjects.size(), actual);
     }
 
     @Test
-//    needs getTable() to have at least package-private access
-//    needs Entry.key to have at least package-private access
-    public void putAllElements() {
+    public void test22PutToReserveAllElements() {
+        //GIVEN
+        //filling map from test21
         //WHEN
-        testObjects.forEach(e -> map.put(e, e));
-        List<Long> actual = Arrays.stream(map.getTable()).filter(Objects::nonNull).map(entry -> entry.key)
+        List<Long> actual = map.getReserveStream().mapToLong(r -> r.key).boxed()
                 .collect(Collectors.toList());
-
-        ///fixme delete
-        System.out.println("capacity = " + map.capacity);
         //THEN
         assertTrue(actual.containsAll(testObjects));
     }
 
     @Test
-//    needs getTable() to have at least package-private access
-    public void putCorrectElementsQuantity() {
+    public void test23CorrectReserveSizeAfterPut() {
+        //GIVEN
+        //filling map from test21
+        int expected = testObjects.size();
         //WHEN
-        testObjects.forEach(e -> map.put(e, e));
-        int mapSize = (int) Arrays.stream(map.getTable()).filter(Objects::nonNull).count();
+        int actual = map.reserveSize;
         //THEN
-        assertEquals(String.format("Put %s, in table %s", testObjects.size(), mapSize), mapSize,
-                testObjects.size());
+        assertEquals(expected, actual);
     }
+
+    @Test
+    public void test24GetFromReserveReturnsCorrectElement() {
+        //GIVEN
+        //filling map from test21
+        long key = testObjects.iterator().next();
+        Long expected = key;
+        //WHEN
+        Long actual = map.getFromReserve(key);
+        assertEquals(expected, actual);
+    }
+
+
+    //------------------------
+
+
+//    @Test
+//    //needs calculateIndex() to have at least package-private access
+//    public void test31CalculateIndexMatchesTableSize() {
+//        for (long key : testObjects) {
+//            for (int i = 0; i < defaultMaxLoop; i++) {
+//                //WHEN
+//                int actual = map.calculateIndex(key, i);
+//                //THEN
+//                assertTrue(String.format("index %s (key %s, iteration %s) doesn`t match interval",
+//                        actual, key, i), actual >= 0 && actual < initialCapacity);
+//            }
+//        }
+//    }
+//
+//    @Test
+////    needs getTable() to have at least package-private access
+////    needs Entry.key to have at least package-private access
+//    public void test41PutAllElements() {
+//        //WHEN
+//        testObjects.forEach(e -> map.put(e, e));
+//        List<Long> actual = Arrays.stream(map.getTable()).filter(Objects::nonNull).map(entry -> entry.key)
+//                .collect(Collectors.toList());
+//
+//        ///fixme delete
+//        System.out.println("capacity = " + map.capacity);
+//        //THEN
+//        assertTrue(actual.containsAll(testObjects));
+//    }
+//
+//    @Test
+////    needs getTable() to have at least package-private access
+//    public void test42PutCorrectElementsQuantity() {
+//        //WHEN
+//        testObjects.forEach(e -> map.put(e, e));
+//        int mapSize = (int) Arrays.stream(map.getTable()).filter(Objects::nonNull).count();
+//        //THEN
+//        assertEquals(String.format("Put %s, in table %s", testObjects.size(), mapSize), mapSize,
+//                testObjects.size());
+//    }
 
 //    @Test
 //    //needs table to have at least package-private access
