@@ -1,5 +1,7 @@
 package de.comparus.opensource.longmap;
 
+import com.sun.istack.internal.Nullable;
+
 import java.util.Arrays;
 import java.util.function.Predicate;
 import java.util.stream.LongStream;
@@ -19,28 +21,34 @@ public class LongMapImpl<V> implements LongMap<V> {
 
     private static final int DEFAULT_CAPACITY = 16;
     private static final int MAX_CAPACITY = 1 << 30;
+    private static final double DEFAULT_TOP_LOAD_FACTOR = 0.8;
+    private static final double DEFAULT_BOTTOM_LOAD_FACTOR = 0.2;
     private static final int DEFAULT_MAX_LOOP = 10;
 
+    /**
+     * Creates long map instance with default parameters:
+     * initial capacity = {@value LongMapImpl#DEFAULT_CAPACITY},
+     * top load factor = {@value LongMapImpl#DEFAULT_TOP_LOAD_FACTOR},
+     * bottom load factor = {@value LongMapImpl#DEFAULT_BOTTOM_LOAD_FACTOR}.
+     * The table of the map is initialized lazily (not exists before the first usage).
+     */
     public LongMapImpl() {
         capacity = DEFAULT_CAPACITY;
         size = 0;
-        topLoadFactor = 0.8;
-        bottomLoadFactor = 0.2;
+        topLoadFactor = DEFAULT_TOP_LOAD_FACTOR;
+        bottomLoadFactor = DEFAULT_BOTTOM_LOAD_FACTOR;
     }
 
-    //FIXME just for test
-//    public LongMapImpl(int initialCapacity, int DEFAULT_MAX_LOOP, double topLoadFactor,
-//                       double bottomLoadFactor) {
-////    public LongMapImpl(int initialCapacity, int DEFAULT_MAX_LOOP, double bottomLoadFactor) {
-//        capacity = initialCapacity;
-//        size = 0;
-//        this.DEFAULT_MAX_LOOP = DEFAULT_MAX_LOOP;
-////        this.maxLoop = Math.min(capacity / 2, DEFAULT_MAX_LOOP);
-//        this.topLoadFactor = topLoadFactor;
-//        this.bottomLoadFactor = bottomLoadFactor;
-//    }
-
-    public V put(long key, V value) {
+    /**
+     * Sets a mapping between specified key and specified value in the map.
+     *
+     * @param key   specified key for mapping.
+     * @param value specified value for mapping.
+     * @return the <tt>value</tt> if mapping has been done successfully, or {@code null} otherwise.
+     * @throws NullPointerException if value == {@code null}.
+     */
+    @Nullable
+    public V put(long key, V value) throws NullPointerException {
         if (value == null) {
             throw new NullPointerException("value = null");
         }
@@ -54,6 +62,14 @@ public class LongMapImpl<V> implements LongMap<V> {
         return null;
     }
 
+    /**
+     * Returns the value to which the specified key is mapped.
+     *
+     * @param key the key which mapping is searched in the map.
+     * @return the <tt>value</tt> to which the specified key is mapped,
+     * or {@code null} if there is no mapping with such key in the map.
+     */
+    @Nullable
     public V get(long key) {
         int index = getKeyIndex(key);
         if (index != -1) {
@@ -62,6 +78,14 @@ public class LongMapImpl<V> implements LongMap<V> {
         return getFromReserve(key);
     }
 
+    /**
+     * Removes a mapping that associates with the specified key from the map.
+     *
+     * @param key the specified key whose mapping is deleted.
+     * @return the <tt>value</tt> which was mapped with the specified key,
+     * or {@code null} if there is no mapping for the specified key in the map.
+     */
+    @Nullable
     public V remove(long key) {
         V value;
         int index = getKeyIndex(key);
@@ -78,27 +102,53 @@ public class LongMapImpl<V> implements LongMap<V> {
         return value;
     }
 
+    /**
+     * Checks if there are no elements in the map.
+     *
+     * @return <tt>true</tt> if there are no elements in the map,
+     * or <tt>false</tt> otherwise.
+     */
     public boolean isEmpty() {
         return size == 0;
     }
 
+    /**
+     * Checks if there is a mapping for specified key in the map.
+     *
+     * @param key the key which mapping is searched in the map.
+     * @return <tt>true</tt> if the map contains a mapping for the specified key,
+     * or <tt>false</tt> otherwise.
+     */
     public boolean containsKey(long key) {
         return getKeyIndex(key) != -1
                 || containsKeyInReserve(key);
     }
 
-    public boolean containsValue(V value) throws NullPointerException {
-        if (value == null) {
-            throw new NullPointerException("value = null");
-        }
-        for (Entry entry : getTable()) {
-            if (entry != null && value.equals(entry.value) && entry.zeroForDeletedEntry == 1) {
-                return true;
+    /**
+     * Checks if there is a mapping with specified value in the map.
+     *
+     * @param value the value which mapping is searched in the map.
+     * @return <tt>true</tt> if the map contains a mapping with the specified value,
+     * or <tt>false</tt> if not or if value == null.
+     */
+    public boolean containsValue(V value) {
+        if (value != null) {
+            for (Entry entry : getTable()) {
+                if (entry != null && value.equals(entry.value) && entry.zeroForDeletedEntry == 1) {
+                    return true;
+                }
             }
+            return containsValueInReserve(value);
         }
-        return containsValueInReserve(value);
+        return false;
     }
 
+    /**
+     * Returns all keys mapped in the map.
+     *
+     * @return the <tt>array</tt> of all keys mapped in the map,
+     * or empty array if the map is empty.
+     */
     public long[] keys() {
         if (size == 0) {
             return new long[0];
@@ -110,6 +160,13 @@ public class LongMapImpl<V> implements LongMap<V> {
         }
     }
 
+    /**
+     * Returns all values mapped in the map.
+     *
+     * @return the <tt>array</tt> of all values mapped in the map.
+     * or {@code null} if the map is empty.
+     */
+    @Nullable
     public V[] values() {
         if (size == 0) {
             return null;
@@ -121,10 +178,18 @@ public class LongMapImpl<V> implements LongMap<V> {
         }
     }
 
+    /**
+     * Returns the number of key-value mappings in this map.
+     *
+     * @return the number of key-value mappings in this map.
+     */
     public long size() {
         return size;
     }
 
+    /**
+     * Removes all key-value mappings from the map.
+     */
     public void clear() {
         Arrays.fill(getTable(), null);
         capacity = DEFAULT_CAPACITY;
@@ -132,6 +197,7 @@ public class LongMapImpl<V> implements LongMap<V> {
         clearReserve();
         size = 0;
     }
+
 
     private V putNewPair(long key, V value) {
         int indexForInsert = -1;
@@ -237,14 +303,12 @@ public class LongMapImpl<V> implements LongMap<V> {
         private V value;
         private byte zeroForDeletedEntry;         // == 0, when entry marked as deleted
 
-        //fixme is needed?
         private Entry(long key, V value) {
             this.key = key;
             this.value = value;
             this.zeroForDeletedEntry = 1;
         }
 
-        //fixme is needed?
         private Entry(Reserve<V> reserve) {
             this(reserve.key, reserve.value);
         }
@@ -294,6 +358,7 @@ public class LongMapImpl<V> implements LongMap<V> {
         }
     }
 
+    @Nullable
     private V getFromReserve(long key) {
         if (reserve != null) {
             Reserve lastReserve = reserve;
@@ -311,6 +376,7 @@ public class LongMapImpl<V> implements LongMap<V> {
         return null;
     }
 
+    @Nullable
     private V removeInReserve(long key) {
         V value = null;
         if (reserve != null) {
@@ -337,6 +403,7 @@ public class LongMapImpl<V> implements LongMap<V> {
         return value;
     }
 
+    @Nullable
     private V removeReserveMiddleElement(long key, Reserve current) {
         V value = null;
         while (current.hasNext()) {
@@ -357,11 +424,11 @@ public class LongMapImpl<V> implements LongMap<V> {
         return getReserveKeys().anyMatch(k -> k == key);
     }
 
-    private boolean containsValueInReserve(V value) throws NullPointerException {
-        if (value == null) {
-            throw new NullPointerException("value = null");
+    private boolean containsValueInReserve(V value) {
+        if (value != null) {
+            return getReserveValues().anyMatch(value::equals);
         }
-        return getReserveValues().anyMatch(value::equals);
+        return false;
     }
 
     private LongStream getReserveKeys() {
