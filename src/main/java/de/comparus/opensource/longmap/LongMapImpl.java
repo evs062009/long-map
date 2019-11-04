@@ -1,7 +1,6 @@
 package de.comparus.opensource.longmap;
 
 import java.util.Arrays;
-import java.util.Objects;
 import java.util.function.Predicate;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
@@ -10,46 +9,36 @@ public class LongMapImpl<V> implements LongMap<V> {
 
     private Entry[] table;
 
-    //FIXME in production needs to be private
-    /*private*/ Reserve<V> reserve;
+    private Reserve<V> reserve;
+    private int capacity;
+    private int size;
+    private int reserveSize;
 
-    //FIXME in production needs to be private
-    /*private*/ int capacity;
-    /*private*/ int size;
-    /*private*/ int reserveSize;
-
-    //fixme delete in production
-    int maxReserveSize;
-
-    //    private int maxLoop;
     private double topLoadFactor;
     private double bottomLoadFactor;
 
     private static final int DEFAULT_CAPACITY = 16;
     private static final int MAX_CAPACITY = 1 << 30;
-
-    //FIXME in production needs to be private static final
-    /*private static final*/ int DEFAULT_MAX_LOOP = 10;
+    private static final int DEFAULT_MAX_LOOP = 10;
 
     public LongMapImpl() {
         capacity = DEFAULT_CAPACITY;
-//        maxLoop = Math.min(capacity / 2, DEFAULT_MAX_LOOP);
         size = 0;
-        topLoadFactor = 0.9;
-        bottomLoadFactor = 0.4;
+        topLoadFactor = 0.8;
+        bottomLoadFactor = 0.2;
     }
 
     //FIXME just for test
-    public LongMapImpl(int initialCapacity, int DEFAULT_MAX_LOOP, double topLoadFactor,
-                       double bottomLoadFactor) {
-//    public LongMapImpl(int initialCapacity, int DEFAULT_MAX_LOOP, double bottomLoadFactor) {
-        capacity = initialCapacity;
-        size = 0;
-        this.DEFAULT_MAX_LOOP = DEFAULT_MAX_LOOP;
-//        this.maxLoop = Math.min(capacity / 2, DEFAULT_MAX_LOOP);
-        this.topLoadFactor = topLoadFactor;
-        this.bottomLoadFactor = bottomLoadFactor;
-    }
+//    public LongMapImpl(int initialCapacity, int DEFAULT_MAX_LOOP, double topLoadFactor,
+//                       double bottomLoadFactor) {
+////    public LongMapImpl(int initialCapacity, int DEFAULT_MAX_LOOP, double bottomLoadFactor) {
+//        capacity = initialCapacity;
+//        size = 0;
+//        this.DEFAULT_MAX_LOOP = DEFAULT_MAX_LOOP;
+////        this.maxLoop = Math.min(capacity / 2, DEFAULT_MAX_LOOP);
+//        this.topLoadFactor = topLoadFactor;
+//        this.bottomLoadFactor = bottomLoadFactor;
+//    }
 
     public V put(long key, V value) {
         if (value == null) {
@@ -58,10 +47,6 @@ public class LongMapImpl<V> implements LongMap<V> {
 
         if (size <= MAX_CAPACITY) {
             if ((double) (size + 1) / capacity > topLoadFactor) {
-
-                //fixme delete
-//                System.out.println("rehash from put");
-                //
                 changeTableSize(true);
             }
             return putNewPair(key, value);
@@ -133,7 +118,6 @@ public class LongMapImpl<V> implements LongMap<V> {
                     .map(Entry::getValue);
             Stream reserveValue = getReserveValues();
             return (V[]) Stream.concat(tableValue, reserveValue).toArray();
-//            return (V[]) tableValue.toArray();
         }
     }
 
@@ -152,7 +136,6 @@ public class LongMapImpl<V> implements LongMap<V> {
     private V putNewPair(long key, V value) {
         int indexForInsert = -1;
 
-//        for (int i = 0; i < maxLoop; i++) {
         for (int i = 0; i < DEFAULT_MAX_LOOP; i++) {
             int index = calculateIndex(key, i);
             Entry entry = getTable()[index];
@@ -168,9 +151,6 @@ public class LongMapImpl<V> implements LongMap<V> {
 
         if (indexForInsert != -1) {
             getTable()[indexForInsert] = new Entry<>(key, value);
-            //fixme delete
-//            printInfo(key + " put to table");
-
             size++;
         } else {
             putToReserve(key, value, true);
@@ -178,8 +158,7 @@ public class LongMapImpl<V> implements LongMap<V> {
         return value;
     }
 
-    //FIXME package-private just for test, must be changed to private
-    /*private*/ Entry[] getTable() {
+    private Entry[] getTable() {
         if (table == null) {
             table = new Entry[capacity];
         }
@@ -198,16 +177,7 @@ public class LongMapImpl<V> implements LongMap<V> {
         if ((increase && capacity <= MAX_CAPACITY / 2)
                 || (!increase && capacity >= DEFAULT_CAPACITY * 2)) {
             capacity = (increase) ? (capacity << 1) : (capacity >> 1);
-
-            //fixme delete
-//            System.out.println("elements in OLD table: " + Arrays.stream(table)
-//                    .filter(Objects::nonNull).count());
-            //
             rehash();
-
-            //fixme delete
-//            System.out.println("elements in NEW table: " + Arrays.stream(table)
-//                    .filter(Objects::nonNull).count());
         }
     }
 
@@ -222,7 +192,6 @@ public class LongMapImpl<V> implements LongMap<V> {
     }
 
     private int getKeyIndex(long key) {
-//        for (int i = 0; i < maxLoop; i++) {
         for (int i = 0; i < DEFAULT_MAX_LOOP; i++) {
             int index = calculateIndex(key, i);
             Entry entry = getTable()[index];
@@ -237,8 +206,7 @@ public class LongMapImpl<V> implements LongMap<V> {
         return -1;
     }
 
-    //FIXME public just for testing, must be changed to private
-    /*private*/ int calculateIndex(long key, int i) {
+    private int calculateIndex(long key, int i) {
         int hash = getHash(key);
         int h1 = hash % capacity;
         int h2 = 1 + (hash % (capacity - 1));
@@ -250,7 +218,6 @@ public class LongMapImpl<V> implements LongMap<V> {
     }
 
     private void putToTable(Entry entry, Entry[] newTable) {
-//        for (int i = 0; i < maxLoop; i++) {
         for (int i = 0; i < DEFAULT_MAX_LOOP; i++) {
             int index = calculateIndex(entry.key, i);
             if (newTable[index] == null) {
@@ -265,22 +232,20 @@ public class LongMapImpl<V> implements LongMap<V> {
         return e -> e != null && e.zeroForDeletedEntry == 1;
     }
 
-    //FIXME package-private just for test, must be changed to private
-    /*private*/ static class Entry<V> {
-        //FIXME package-private just for test, must be changed to private
-        /*private*/ long key;
+    private static class Entry<V> {
+        private long key;
         private V value;
         private byte zeroForDeletedEntry;         // == 0, when entry marked as deleted
 
-        //FIXME package-private just for test, must be changed to private
-        /*private*/ Entry(long key, V value) {
+        //fixme is needed?
+        private Entry(long key, V value) {
             this.key = key;
             this.value = value;
             this.zeroForDeletedEntry = 1;
         }
 
-        //FIXME package-private just for test, must be changed to private
-        /*private*/ Entry(Reserve<V> reserve) {
+        //fixme is needed?
+        private Entry(Reserve<V> reserve) {
             this(reserve.key, reserve.value);
         }
 
@@ -293,11 +258,9 @@ public class LongMapImpl<V> implements LongMap<V> {
         }
     }
 
-    //fixme in production has to be private
-    /*private*/ static class Reserve<V> {
+    private static class Reserve<V> {
 
-        //fixme in production has to be private
-        /*private*/ long key;
+        private long key;
         private V value;
         private Reserve next;
 
@@ -311,8 +274,7 @@ public class LongMapImpl<V> implements LongMap<V> {
         }
     }
 
-    //fixme in production has to be private
-    /*private*/ void putToReserve(long key, V value, boolean isSizeIncrease) {
+    private void putToReserve(long key, V value, boolean isSizeIncrease) {
         if (reserve == null) {
             reserve = new Reserve<>(key, value);
         } else {
@@ -327,23 +289,12 @@ public class LongMapImpl<V> implements LongMap<V> {
         }
         reserveSize++;
 
-        //fixme delete in ptoduction
-        if (reserveSize > maxReserveSize) {
-            maxReserveSize = reserveSize;
-        }
-//        printInfo(key + " put to reserve");
-        //
         if (reserveSize > Math.max(10, size / 20)) {
-
-            //fixme delete
-//            System.out.println("rehash form reserve");
-            //
             changeTableSize(true);
         }
     }
 
-    //fixme in production has to be private
-    /*private*/ V getFromReserve(long key) {
+    private V getFromReserve(long key) {
         if (reserve != null) {
             Reserve lastReserve = reserve;
             while (true) {
@@ -360,34 +311,44 @@ public class LongMapImpl<V> implements LongMap<V> {
         return null;
     }
 
-    //fixme in production has to be private
-    /*private*/ V removeInReserve(long key) {
+    private V removeInReserve(long key) {
         V value = null;
         if (reserve != null) {
             if (reserve.key == key) {
-                value = reserve.value;
-                if (reserve.next == null) {
-                    reserve = null;
-                    reserveSize = 0;
-                } else {
-                    reserve = reserve.next;
-                    reserveSize--;
-                }
-                size--;
+                value = removeReserveFirstElement();
             } else {
-                Reserve previous = reserve;
-                while (previous.hasNext()) {
-                    Reserve current = previous.next;
-                    if (current.key == key) {
-                        value = (V) current.value;
-                        previous.next = current.next;
-                        size--;
-                        reserveSize--;
-                        break;
-                    }
-                    previous = current;
-                }
+                value = removeReserveMiddleElement(key, reserve);
             }
+        }
+        return value;
+    }
+
+    private V removeReserveFirstElement() {
+        V value;
+        value = reserve.value;
+        if (reserve.next == null) {
+            reserve = null;
+            reserveSize = 0;
+        } else {
+            reserve = reserve.next;
+            reserveSize--;
+        }
+        size--;
+        return value;
+    }
+
+    private V removeReserveMiddleElement(long key, Reserve current) {
+        V value = null;
+        while (current.hasNext()) {
+            Reserve next = current.next;
+            if (next.key == key) {
+                value = (V) next.value;
+                current.next = next.next;
+                size--;
+                reserveSize--;
+                break;
+            }
+            current = next;
         }
         return value;
     }
@@ -403,9 +364,7 @@ public class LongMapImpl<V> implements LongMap<V> {
         return getReserveValues().anyMatch(value::equals);
     }
 
-    //test is not needed
-    //fixme in production has to be private
-    /*private*/ LongStream getReserveKeys() {
+    private LongStream getReserveKeys() {
         return getReserveStream().mapToLong(r -> r.key);
     }
 
@@ -417,27 +376,15 @@ public class LongMapImpl<V> implements LongMap<V> {
         return getReserveStream().map(Entry::new);
     }
 
-    //fixme in production has to be private
-    /*private*/ void clearReserve() {
+    private void clearReserve() {
         reserve = null;
         reserveSize = 0;
     }
 
-    //fixme in production has to be private
-    /*private*/ Stream<Reserve<V>> getReserveStream() {
+    private Stream<Reserve<V>> getReserveStream() {
         if (reserve == null) {
             return Stream.empty();
         }
         return Stream.iterate(reserve, r -> r.next).limit(reserveSize);
     }
-
-    //fixme delete
-//    private void printInfo(String message) {
-//        System.out.println(message);
-//        System.out.print("in table: ");
-//        Arrays.stream(table).forEach(e -> System.out.print((e == null) ? ("*, ") : (e.key + ", ")));
-//        System.out.print("\nreserve: ");
-//        getReserveKeys().forEach(e -> System.out.print(e + ", "));
-//        System.out.println();
-//    }
 }
