@@ -353,7 +353,7 @@ public class LongMapImpl<V> implements LongMap<V> {
         }
         reserveSize++;
 
-        if (reserveSize > Math.max(10, size / 20)) {
+        if (reserveSize > Math.max(10, size / 10)) {
             changeTableSize(true);
         }
     }

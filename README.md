@@ -11,11 +11,11 @@ The implementation is based on open addressing principle with double hashing
 Data storage (key-value Entry) are a "main table" (an array) and a "reserve" 
 (a manually implemented linked list). The reserve guarantees entry saving before 
 max size achieving. Also, it reduces the number of needed rehashing. The size of 
-the reserve is limited to 5% of the total number of stored in the map elements.
+the reserve is limited to 10% of the total number of stored in the map elements.
 
 It is assumed that the economy of memory is achieved by:
 * Use of open addressing - saving on the absence of links in Entry (except for those 
-    stored in the reserve, but this quantity is not more than 5% of the total);
+    stored in the reserve, but this quantity is not more than 10% of the total);
 * Automatic trim when the bottom load factor is reached - saving on the number of 
     unnecessary (empty) cells.
 * When the map is empty, the main array and reserve are deleted (are null) and lazy 
