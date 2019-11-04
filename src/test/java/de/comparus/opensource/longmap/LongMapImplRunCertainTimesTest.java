@@ -19,8 +19,8 @@ import static org.junit.Assert.*;
 @FixMethodOrder(MethodSorters.NAME_ASCENDING)
 public class LongMapImplRunCertainTimesTest {
 
-    private static final int TEST_TIMES = 100;  //the number of cycles that all tests pass
-    private static final int TEST_OBJECTS_SIZE = 27;    //the number of key-value mapping on which the map is tested
+    private static final int TEST_TIMES = 1;  //the number of cycles that all tests pass
+    private static final int TEST_OBJECTS_SIZE = 2000;    //the number of key-value mapping on which the map is tested
 
     private static Random random;
     private static Set<Long> testObjects;   //partially random set on which the map is tested
